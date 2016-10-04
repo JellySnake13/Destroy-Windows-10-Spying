@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Management;
 using System.Net;
+using System.Reflection;
 using System.Resources;
 using System.Runtime.InteropServices;
 using System.Security.AccessControl;
@@ -24,25 +25,70 @@ namespace DWS_Lite
     public sealed partial class MainDwsForm : Form
     {
         private const string LogFileName = "DWS.log";
+
         // ReSharper disable once InconsistentNaming
         public const int WM_NCLBUTTONDOWN = 0xA1;
+
         // ReSharper disable once InconsistentNaming
         public const int HT_CAPTION = 0x2;
+
         // ReSharper disable once InconsistentNaming
         private const int CS_DROPSHADOW = 0x00020000;
+
         private readonly string _systemPath = Path.GetPathRoot(Environment.SystemDirectory);
+
+        private readonly string[] _updatesnumberlist =
+        {
+            "2952664",
+            "2976978",
+            "2990214",
+            "3021917",
+            "3035583",
+            "3042058",
+            "3044374",
+            "3050265",
+            "3065987",
+            "3065988",
+            "3068708",
+            "3075249",
+            "3075851",
+            "3075853",
+            "3080149",
+            "3083324",
+            "3083325",
+            "3083710",
+            "3083711",
+            "3088195",
+            "3093513",
+            "3093983",
+            "3102810",
+            "3112336",
+            "971033",
+            "976932",
+            // THX rgadguard
+
+            "3068708",
+            "3022345",
+            "3075249",
+            "3080149"
+            // RepleteMirror
+        };
+
+        private int _closeButtonState;
         private bool _destroyFlag;
+
         // ReSharper disable once CollectionNeverQueried.Local
         // ReSharper disable once FieldCanBeMadeReadOnly.Local
         private List<string> _errorsList = new List<string>();
+
         private int _fatalErrors;
+        private int _minimizeButtonState;
         private ResourceManager _rm;
         private string _system32Location;
         private bool _win10 = true;
 
         public MainDwsForm(string[] args)
         {
-
             InitializeComponent();
             DoubleBuffered = true;
             // Re create log file
@@ -58,9 +104,9 @@ namespace DWS_Lite
              */
             try
             {
-                Icon = Icon.ExtractAssociatedIcon(System.Reflection.Assembly.GetExecutingAssembly().Location);
+                Icon = Icon.ExtractAssociatedIcon(Assembly.GetExecutingAssembly().Location);
                 Text +=
-                    $"v{FileVersionInfo.GetVersionInfo(System.Reflection.Assembly.GetExecutingAssembly().Location).FileVersion}";
+                    $"v{FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).FileVersion}";
             }
             catch
             {
@@ -71,38 +117,6 @@ namespace DWS_Lite
             StealthMode(args); //check args
             new Thread(AnimateBackground).Start(); // animate border (new thread)
             new Thread(AutoUpdate).Start(); // auto update
-        }
-
-        void AutoUpdate()
-        {
-            try
-            {
-                var assemblyInfo =
-                    new WebClient().DownloadString(
-                        "http://raw.githubusercontent.com/Nummer/Destroy-Windows-10-Spying/master/DWS/Properties/AssemblyInfo.cs");
-                var readText = assemblyInfo.Split('\n');
-                var versionInfoLines = readText.Where(t => t.Contains("[assembly: AssemblyFileVersion"));
-                var version = "";
-                foreach (var item in versionInfoLines)
-                {
-                    version = item.Substring(item.IndexOf('(') + 2, item.LastIndexOf(')') - item.IndexOf('(') - 3);
-                }
-                if (version !=
-                    FileVersionInfo.GetVersionInfo(System.Reflection.Assembly.GetExecutingAssembly().Location)
-                        .FileVersion)
-                {
-                    if (MessageBox.Show($"New version avalible.\n\nVersion: {version} .\n\nDownload now?", @"Update",
-                        MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
-                    {
-                        Process.Start("https://github.com/Nummer/Destroy-Windows-10-Spying/releases/latest");
-                        Process.GetCurrentProcess().Kill();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error check update.\nMessage: {ex.Message}", @"Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
         }
 
         public override string Text
@@ -125,7 +139,36 @@ namespace DWS_Lite
             }
         }
 
-        /* 
+        private void AutoUpdate()
+        {
+            try
+            {
+                var assemblyInfo =
+                    new WebClient().DownloadString(
+                        "http://raw.githubusercontent.com/Nummer/Destroy-Windows-10-Spying/master/DWS/Properties/AssemblyInfo.cs");
+                var readText = assemblyInfo.Split('\n');
+                var versionInfoLines = readText.Where(t => t.Contains("[assembly: AssemblyFileVersion"));
+                var version = "";
+                foreach (var item in versionInfoLines)
+                    version = item.Substring(item.IndexOf('(') + 2, item.LastIndexOf(')') - item.IndexOf('(') - 3);
+                if (version !=
+                    FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location)
+                        .FileVersion)
+                    if (MessageBox.Show($"New version avalible.\n\nVersion: {version} .\n\nDownload now?", @"Update",
+                            MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                    {
+                        Process.Start("https://github.com/Nummer/Destroy-Windows-10-Spying/releases/latest");
+                        Process.GetCurrentProcess().Kill();
+                    }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error check update.\nMessage: {ex.Message}", @"Error", MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        /*
          * Feature animation is calculated borders.
          */
 
@@ -134,16 +177,14 @@ namespace DWS_Lite
             try
             {
                 while (true)
-                {
                     for (float i = 0; i < 1f; i += 0.01f)
                     {
                         Thread.Sleep(50); // thread slleep. Too fast.
                         ChangeBorderColor(Rainbow(i)); //call change border function
                     }
-                }
             }
-                // ReSharper disable once EmptyGeneralCatchClause
-                // ReSharper disable once UnusedVariable
+            // ReSharper disable once EmptyGeneralCatchClause
+            // ReSharper disable once UnusedVariable
             catch (Exception ex)
             {
 #if DEBUG
@@ -171,9 +212,7 @@ namespace DWS_Lite
             foreach (var currentArg in currentArgs)
             {
                 if (currentArg.IndexOf("/deleteapp=", StringComparison.Ordinal) > -1)
-                {
                     DeleteWindows10MetroApp(currentArg.Replace("/deleteapp=", null));
-                }
                 if (currentArg.IndexOf("/destroy", StringComparison.Ordinal) > -1)
                 {
                     WindowState = FormWindowState.Minimized;
@@ -184,12 +223,10 @@ namespace DWS_Lite
                     else Dws78MainThread();
                 }
                 if (currentArg.IndexOf("/deleteonedrive", StringComparison.Ordinal) > -1)
-                {
                     DeleteOneDrive();
-                }
             }
             if (currentArgs.Any())
-            Process.GetCurrentProcess().Kill();
+                Process.GetCurrentProcess().Kill();
         }
 
         /*
@@ -199,13 +236,9 @@ namespace DWS_Lite
         private void _SetShellSys32Path()
         {
             if (File.Exists(_systemPath + @"Windows\Sysnative\cmd.exe"))
-            {
                 _system32Location = _systemPath + @"Windows\Sysnative\";
-            }
             else
-            {
                 _system32Location = _systemPath + @"Windows\System32\";
-            }
         }
 
         /*
@@ -216,12 +249,10 @@ namespace DWS_Lite
         {
             var windowsBuildNumber = WindowsUtil.GetWindowsBuildNumber();
             if (windowsBuildNumber < 7600)
-            {
                 if (MessageBox.Show(@"Minimum windows version - 7\nExit from the program?", @"Error",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Error) == DialogResult.Yes)
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Error) == DialogResult.Yes)
                     Process.GetCurrentProcess().Kill();
-            }
             // check Win 7 or 8.1
             if (windowsBuildNumber >= 10000) return;
             _win10 = false;
@@ -328,8 +359,8 @@ namespace DWS_Lite
                     File.Create(logfilename).Close();
                 }
             }
-                // ReSharper disable once EmptyGeneralCatchClause
-                // ReSharper disable once UnusedVariable
+            // ReSharper disable once EmptyGeneralCatchClause
+            // ReSharper disable once UnusedVariable
             catch (Exception ex)
             {
 #if DEBUG
@@ -368,15 +399,13 @@ namespace DWS_Lite
                 // ReSharper disable once NotAccessedVariable
                 string line = null;
                 while (!proc.StandardOutput.EndOfStream)
-                {
                     line += Environment.NewLine + proc.StandardOutput.ReadLine();
-                }
                 proc.WaitForExit();
 #if DEBUG
                 _OutPut($"Start: {name} {args}{Environment.NewLine}Output: {line}", LogLevel.Debug);
 #endif
             }
-                // ReSharper disable once UnusedVariable
+            // ReSharper disable once UnusedVariable
             catch (Exception ex)
             {
                 _OutPut($"Error start prog {name} {args}", LogLevel.Error);
@@ -433,7 +462,6 @@ namespace DWS_Lite
         private void DestroyWindowsSpyingMainThread()
         {
             if (checkBoxCreateSystemRestorePoint.Checked)
-            {
                 try
                 {
                     var restorepointName = $"DestroyWindowsSpying {DateTime.Now}";
@@ -441,7 +469,7 @@ namespace DWS_Lite
                     CreateRestorePoint(restorepointName);
                     _OutPut($"Restore point {restorepointName} created.");
                 }
-                    // ReSharper disable once UnusedVariable
+                // ReSharper disable once UnusedVariable
                 catch (Exception ex)
                 {
                     _OutPut("Error creating restore point.");
@@ -449,7 +477,6 @@ namespace DWS_Lite
                     _OutPut(ex.Message, LogLevel.Debug);
 #endif
                 }
-            }
             Progressbaradd(10);
             if (checkBoxKeyLoggerAndTelemetry.Checked)
             {
@@ -460,14 +487,12 @@ namespace DWS_Lite
                 _OutPut("Delete keylogger...");
                 RunCmd(
                     "/c reg add \"HKEY_LOCAL_MACHINE\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search\" /v \"AllowCortana\" /t REG_DWORD /d 0 /f ");
-                    // disable Cortana;
+                // disable Cortana;
                 _OutPut("Cortana disable #1");
             }
             Progressbaradd(15); //25
             if (checkBoxAddToHosts.Checked)
-            {
                 AddToHostsAndFirewall();
-            }
             Progressbaradd(20); //45
             if (checkBoxDisablePrivateSettings.Checked)
             {
@@ -489,9 +514,7 @@ namespace DWS_Lite
                     @"SOFTWARE\Microsoft\Windows\CurrentVersion\DeviceAccess\Global\LooselyCoupled"
                 };
                 foreach (var currentRegKey in regkeyvalandother)
-                {
                     SetRegValueHkcu(currentRegKey, "Value", "Deny", RegistryValueKind.String);
-                }
                 SetRegValueHkcu(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Search", "CortanaEnabled", "0",
                     RegistryValueKind.DWord);
                 SetRegValueHkcu(@"SOFTWARE\Microsoft\InputPersonalization", "RestrictImplicitInkCollection", "1",
@@ -551,7 +574,6 @@ namespace DWS_Lite
             }
             Progressbaradd(10); //55
             if (checkBoxDisableWindowsDefender.Checked)
-            {
                 try
                 {
                     SetRegValueHklm(@"SOFTWARE\Policies\Microsoft\Windows Defender", "DisableAntiSpyware", "1",
@@ -576,7 +598,6 @@ namespace DWS_Lite
                     _fatalErrors++;
                     _errorsList.Add($"Error disable Windows Defender or Smart Screen. Message: {ex.Message}");
                 }
-            }
             Progressbaradd(5); //60
             if (checkBoxSetDefaultPhoto.Checked)
             {
@@ -591,14 +612,10 @@ namespace DWS_Lite
             }
             Progressbaradd(10); //70
             if (checkBoxSPYTasks.Checked)
-            {
                 DisableSpyingTasks();
-            }
             Progressbaradd(10); //80
             if (checkBoxDeleteWindows10Apps.Checked)
-            {
                 RemoveWindows10Apps();
-            }
             Progressbaradd(20); //100
             EnableOrDisableTab(true);
             try
@@ -611,8 +628,8 @@ namespace DWS_Lite
                 {
                     SetCompleteText();
                 }
-                    // ReSharper disable once UnusedVariable
-                    // ReSharper disable once EmptyGeneralCatchClause
+                // ReSharper disable once UnusedVariable
+                // ReSharper disable once EmptyGeneralCatchClause
                 catch (Exception ex)
                 {
 #if DEBUG
@@ -637,8 +654,10 @@ namespace DWS_Lite
             RunCmd("/c sc delete dmwappushsvc");
             RunCmd("/c sc delete \"Diagnostics Tracking Service\"");
             RunCmd("/c sc delete diagtrack");
-            RunCmd("/c reg add \"HKLM\\SYSTEM\\CurrentControlSet\\Services\\SharedAccess\\Parameters\\FirewallPolicy\\FirewallRules\"  /v \"{60E6D465-398E-4850-BE86-7EF7620A2377}\" /t REG_SZ /d  \"v2.24|Action=Block|Active=TRUE|Dir=Out|App=C:\\windows\\system32\\svchost.exe|Svc=DiagTrack|Name=Windows  Telemetry|\" /f");
-            RunCmd("/c reg add \"HKLM\\SYSTEM\\CurrentControlSet\\Services\\SharedAccess\\Parameters\\FirewallPolicy\\FirewallRules\"  /v \"{2765E0F4-2918-4A46-B9C9-43CDD8FCBA2B}\" /t REG_SZ /d  \"v2.24|Action=Block|Active=TRUE|Dir=Out|App=C:\\windows\\systemapps\\microsoft.windows.cortana_cw5n1h2txyewy\\searchui.exe|Name=Search  and Cortana  application|AppPkgId=S-1-15-2-1861897761-1695161497-2927542615-642690995-327840285-2659745135-2630312742|\"  /f");
+            RunCmd(
+                "/c reg add \"HKLM\\SYSTEM\\CurrentControlSet\\Services\\SharedAccess\\Parameters\\FirewallPolicy\\FirewallRules\"  /v \"{60E6D465-398E-4850-BE86-7EF7620A2377}\" /t REG_SZ /d  \"v2.24|Action=Block|Active=TRUE|Dir=Out|App=C:\\windows\\system32\\svchost.exe|Svc=DiagTrack|Name=Windows  Telemetry|\" /f");
+            RunCmd(
+                "/c reg add \"HKLM\\SYSTEM\\CurrentControlSet\\Services\\SharedAccess\\Parameters\\FirewallPolicy\\FirewallRules\"  /v \"{2765E0F4-2918-4A46-B9C9-43CDD8FCBA2B}\" /t REG_SZ /d  \"v2.24|Action=Block|Active=TRUE|Dir=Out|App=C:\\windows\\systemapps\\microsoft.windows.cortana_cw5n1h2txyewy\\searchui.exe|Name=Search  and Cortana  application|AppPkgId=S-1-15-2-1861897761-1695161497-2927542615-642690995-327840285-2659745135-2630312742|\"  /f");
             RunCmd(
                 "/c reg add \"HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Device Metadata\" /v \"PreventDeviceMetadataFromNetwork\" /t REG_DWORD /d 1 /f ");
             RunCmd(
@@ -679,7 +698,7 @@ namespace DWS_Lite
                     StatusCommandsLable.Text = $"Destroy Windows 10 Spying - {GetTranslateText("Complete")}!";
                     StatusCommandsLable.ForeColor = Color.DarkGreen;
                     if (MessageBox.Show(GetTranslateText("CompleteMSG"), GetTranslateText("Info"),
-                        MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+                            MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
                     Process.Start("shutdown.exe", "-r -t 0");
                     Process.GetCurrentProcess().Kill();
                 }
@@ -690,7 +709,7 @@ namespace DWS_Lite
                     try
                     {
                         var errorsMsg = _errorsList.Aggregate<string, string>(null,
-                            (current, errorMsg) => current + (errorMsg + "\r\n"));
+                            (current, errorMsg) => current + errorMsg + "\r\n");
                         var errorFilePath = Path.GetTempPath() + @"\errors.log";
                         File.Create(errorFilePath).Close();
                         File.WriteAllText(errorFilePath, errorsMsg);
@@ -701,8 +720,8 @@ namespace DWS_Lite
                         // ignored
                     }
                     if (MessageBox.Show(string.Format(GetTranslateText("ErrorMSG"), _fatalErrors),
-                        GetTranslateText("Info"),
-                        MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+                            GetTranslateText("Info"),
+                            MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
                     Process.Start("shutdown.exe", "-r -t 0");
                     Process.GetCurrentProcess().Kill();
                 }
@@ -857,7 +876,7 @@ namespace DWS_Lite
                     "secure.adnxs.com",
                     "secure.flashtalking.com",
                     "services.wes.df.telemetry.microsoft.com",
-                    "settings.data.microsoft.com",
+                    "settings.data.microsof.com",
                     "settings-sandbox.data.microsoft.com",
                     "settings-win.data.microsoft.com",
                     "sls.update.microsoft.com.akadns.net",
@@ -895,7 +914,7 @@ namespace DWS_Lite
                     "watson.telemetry.microsoft.com.nsatc.net",
                     "wes.df.telemetry.microsoft.com",
                     "win10.ipv6.microsoft.com",
-                    "www.msftncsi.com",
+                    "www.msftncsi.com"
                 };
                 var hostslocation = _system32Location + @"drivers\etc\hosts";
                 string hosts = null;
@@ -909,9 +928,9 @@ namespace DWS_Lite
                 File.WriteAllText(hostslocation, hosts + Environment.NewLine);
                 foreach (
                     var currentHostsDomain in
-                        hostsdomains.Where(
-                            currentHostsDomain =>
-                                hosts != null && hosts.IndexOf(currentHostsDomain, StringComparison.Ordinal) == -1))
+                    hostsdomains.Where(
+                        currentHostsDomain =>
+                                (hosts != null) && (hosts.IndexOf(currentHostsDomain, StringComparison.Ordinal) == -1)))
                 {
                     RunCmd($"/c echo 0.0.0.0 {currentHostsDomain} >> \"{hostslocation}\"");
                     _OutPut($"Add to hosts - {currentHostsDomain}");
@@ -1048,9 +1067,7 @@ namespace DWS_Lite
             if (
                 MessageBox.Show(GetTranslateText("CompleteMSG"), GetTranslateText("Info"), MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question) == DialogResult.Yes)
-            {
                 Process.Start("shutdown.exe", "-r -t 0");
-            }
         }
 
         private void btnDisableUac_Click(object sender, EventArgs e)
@@ -1062,9 +1079,7 @@ namespace DWS_Lite
             if (
                 MessageBox.Show(GetTranslateText("CompleteMSG"), GetTranslateText("Info"), MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question) == DialogResult.Yes)
-            {
                 Process.Start("shutdown.exe", "-r -t 0");
-            }
         }
 
         private void btnEnableWindowsUpdate_Click(object sender, EventArgs e)
@@ -1154,9 +1169,8 @@ namespace DWS_Lite
             new Thread(DeleteOneDrive).Start();
         }
 
-        void DeleteOneDrive()
+        private void DeleteOneDrive()
         {
-
             EnableOrDisableTab(false);
             try
             {
@@ -1187,7 +1201,7 @@ namespace DWS_Lite
                         MessageBoxIcon.Error);
                 }));
 #if DEBUG
-                    _OutPut(ex.Message, LogLevel.Debug);
+                _OutPut(ex.Message, LogLevel.Debug);
 #endif
             }
             Invoke(new MethodInvoker(delegate
@@ -1216,9 +1230,7 @@ namespace DWS_Lite
                 "204.79.197.200_Block" // bing.com
             };
             foreach (var hostname in rulename)
-            {
                 RunCmd($"/c netsh advfirewall firewall delete rule name=\"{hostname}\"");
-            }
 
             MessageBox.Show(GetTranslateText("Complete"), GetTranslateText("Info"));
         }
@@ -1231,66 +1243,82 @@ namespace DWS_Lite
                     _rm = ru_RU.ResourceManager;
                     ChangeLanguage();
                     break;
+
                 case "fa-IR":
                     _rm = fa_IR.ResourceManager;
                     ChangeLanguage();
                     break;
+
                 case "fr-FR":
                     _rm = fr_FR.ResourceManager;
                     ChangeLanguage();
                     break;
+
                 case "es-ES":
                     _rm = es_ES.ResourceManager;
                     ChangeLanguage();
                     break;
+
                 case "pt-BR":
                     _rm = pt_BR.ResourceManager;
                     ChangeLanguage();
                     break;
+
                 case "de-DE":
                     _rm = de_DE.ResourceManager;
                     ChangeLanguage();
                     break;
+
                 case "pl-PL":
                     _rm = pl_PL.ResourceManager;
                     ChangeLanguage();
                     break;
+
                 case "it-CH":
                     _rm = it_IT.ResourceManager;
                     ChangeLanguage();
                     break;
+
                 case "cs-CZ":
                     _rm = cs_CZ.ResourceManager;
                     ChangeLanguage();
                     break;
+
                 case "zh-CN":
                     _rm = zh_CN.ResourceManager;
                     ChangeLanguage();
                     break;
+
                 case "tr-TR":
                     _rm = tr_TR.ResourceManager;
                     ChangeLanguage();
                     break;
+
                 case "ar-LY":
                     _rm = ar_LY.ResourceManager;
                     ChangeLanguage();
                     break;
+
                 case "nl-NL":
                     _rm = nl_NL.ResourceManager;
                     ChangeLanguage();
                     break;
+
                 case "uk-UA":
                     _rm = uk_UA.ResourceManager;
                     ChangeLanguage();
                     break;
+
                 case "lt-LT":
                     _rm = lt_LT.ResourceManager;
                     ChangeLanguage();
                     break;
+
                 case "ja-JP":
                     _rm = ja_JP.ResourceManager;
                     ChangeLanguage();
                     break;
+
                 default:
                     _rm = en_US.ResourceManager;
                     ChangeLanguage();
@@ -1300,7 +1328,8 @@ namespace DWS_Lite
 
         private void btnFixRotateScreen_Click(object sender, EventArgs e)
         {
-            SetRegValueHklm(@"SOFTWARE\Policies\Microsoft\Windows\LocationAndSensors", "DisableSensors", "0", RegistryValueKind.DWord);
+            SetRegValueHklm(@"SOFTWARE\Policies\Microsoft\Windows\LocationAndSensors", "DisableSensors", "0",
+                RegistryValueKind.DWord);
             MessageBox.Show(GetTranslateText("Complete"), @"Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
@@ -1315,25 +1344,15 @@ namespace DWS_Lite
         private void Dws78MainThread()
         {
             if (checkBoxAddToHosts78.Checked)
-            {
                 AddToHostsAndFirewall();
-            }
             if (checkBoxSPYTasks78.Checked)
-            {
                 DisableSpyingTasks();
-            }
             if (checkBoxDeleteWindows78Updates.Checked)
-            {
                 DeleteUpdatesWin78();
-            }
             if (checkBoxDeleteGWX.Checked)
-            {
                 GwxDelete();
-            }
             if (checkBoxDelKeyloggerTW78.Checked)
-            {
                 DigTrackFullRemove();
-            }
             if (_destroyFlag)
                 return;
             Invoke(new MethodInvoker(delegate
@@ -1379,37 +1398,6 @@ namespace DWS_Lite
             }
         }
 
-        private readonly string[] _updatesnumberlist =
-        {
-            "2952664",
-            "2976978",
-            "2990214",
-            "3021917",
-            "3035583",
-            "3042058",
-            "3044374",
-            "3050265",
-            "3065987",
-            "3065988",
-            "3068708",
-            "3075249",
-            "3075851",
-            "3075853",
-            "3080149",
-            "3083324",
-            "3083325",
-            "3083710",
-            "3083711",
-            "3088195",
-            "3093513",
-            "3093983",
-            "3102810",
-            "3112336",
-            "971033",
-            "976932"
-            // THX rgadguard
-        };
-
         private void DeleteUpdatesWin78()
         {
             for (var i = 0; i < checkedListBoxUpdatesW78.Items.Count; i++)
@@ -1420,7 +1408,6 @@ namespace DWS_Lite
                 _OutPut($"Remove and Hide update KB{updateNumber}");
             }
         }
-
 
         private void BlockIpAddr()
         {
@@ -1527,11 +1514,9 @@ namespace DWS_Lite
         private void btnDisableOfficeUpdate_Click(object sender, EventArgs e)
         {
             if (MessageBox.Show(
-                @"Office 2016 may stop working after these actions.
+                    @"Office 2016 may stop working after these actions.
 Are you sure?", @"Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.No)
-            {
                 return;
-            }
             try
             {
                 var windowsIdentityUser = WindowsIdentity.GetCurrent();
@@ -1547,12 +1532,8 @@ Are you sure?", @"Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == 
                     };
                     var officePath = @"C:\Program Files\Microsoft Office\root\Office16\msosync.exe";
                     if (opnFileDialog.ShowDialog() == DialogResult.OK)
-                    {
                         if (File.Exists(opnFileDialog.FileName))
-                        {
                             officePath = opnFileDialog.FileName;
-                        }
-                    }
 
                     RunCmd("/c TASKKILL /F /IM msosync.exe");
                     RunCmd($"/c takeown /f \"{officePath}\" /d y");
@@ -1659,7 +1640,7 @@ Are you sure?", @"Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == 
 
         private void CaptionWindow_Paint(object sender, PaintEventArgs e)
         {
-            e.Graphics.FillEllipse(new SolidBrush(Color.WhiteSmoke), 3,3,23,23);
+            e.Graphics.FillEllipse(new SolidBrush(Color.WhiteSmoke), 3, 3, 23, 23);
             e.Graphics.DrawImage(Icon.ToBitmap(), 6, 5, 19, 19);
         }
 
@@ -1683,29 +1664,31 @@ Are you sure?", @"Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == 
 
         public static Color Rainbow(float progress)
         {
-            var div = (Math.Abs(progress%1)*6);
-            var ascending = (int) ((div%1)*255);
+            var div = Math.Abs(progress%1)*6;
+            var ascending = (int) (div%1*255);
             var descending = 255 - ascending;
 
             switch ((int) div)
             {
                 case 0:
                     return Color.FromArgb(255, 255, ascending, 0);
+
                 case 1:
                     return Color.FromArgb(255, descending, 255, 0);
+
                 case 2:
                     return Color.FromArgb(255, 0, 255, ascending);
+
                 case 3:
                     return Color.FromArgb(255, 0, descending, 255);
+
                 case 4:
                     return Color.FromArgb(255, ascending, 0, 255);
+
                 default: // case 5:
                     return Color.FromArgb(255, 255, 0, descending);
             }
         }
-
-        private int _closeButtonState;
-        private int _minimizeButtonState;
 
         private void CloseButton_MouseDown(object sender, MouseEventArgs e)
         {
@@ -1721,6 +1704,26 @@ Are you sure?", @"Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == 
             MinimizeButton.BackColor = Color.CornflowerBlue;
         }
 
+        private void checkBoxDeleteWindows78Updates_CheckedChanged(object sender, EventArgs e)
+        {
+            checkedListBoxUpdatesW78.Enabled = checkBoxDeleteWindows78Updates.Checked;
+        }
+
+        private void DestroyWindowsSpyingMainForm_Activated(object sender, EventArgs e)
+        {
+            CaptionWindow.ForeColor = Color.FromArgb(64, 64, 64);
+        }
+
+        private void DestroyWindowsSpyingMainForm_Deactivate(object sender, EventArgs e)
+        {
+            CaptionWindow.ForeColor = Color.FromArgb(164, 164, 164);
+        }
+
+        private void linkLabel2_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            Process.Start("http://nullptr.space");
+        }
+
         #region Language
 
         private string _GetLang(IEnumerable<string> args)
@@ -1729,18 +1732,14 @@ Are you sure?", @"Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == 
             // check args lang
             foreach (
                 var currentArg in args.Where(currentArg => currentArg.IndexOf("/lang=", StringComparison.Ordinal) > -1))
-            {
                 languageName = currentArg.Replace("/lang=", null);
-            }
             return languageName;
         }
 
         private void SetLanguage(string currentlang = null)
         {
             if (currentlang == null)
-            {
                 currentlang = CultureInfo.CurrentUICulture.Name.ToLower();
-            }
             if (currentlang.IndexOf("ru", StringComparison.Ordinal) > -1)
             {
                 _rm = ru_RU.ResourceManager; // change resource language manager.
@@ -1883,15 +1882,10 @@ Are you sure?", @"Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == 
             {
                 var textupdate = _rm.GetString(name);
                 if (textupdate != null)
-                {
                     return textupdate;
-                }
-                else
-                {
-                    return en_US.ResourceManager.GetString(name);
-                }
+                return en_US.ResourceManager.GetString(name);
             }
-                // ReSharper disable once UnusedVariable
+            // ReSharper disable once UnusedVariable
             catch (Exception ex)
             {
 #if DEBUG
@@ -1901,7 +1895,7 @@ Are you sure?", @"Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == 
             }
         }
 
-        #endregion
+        #endregion Language
 
         #region Output
 
@@ -1958,11 +1952,11 @@ Are you sure?", @"Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == 
             Error,
             FatalError,
             Debug
-        };
+        }
 
         private void _OutPutInvoke(string str, LogLevel logLevel)
         {
-            if (logLevel == LogLevel.Debug && string.IsNullOrEmpty(str))
+            if ((logLevel == LogLevel.Debug) && string.IsNullOrEmpty(str))
                 return;
 
             switch (logLevel)
@@ -1970,15 +1964,19 @@ Are you sure?", @"Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == 
                 case LogLevel.Info:
                     str = "[INFO] " + str;
                     break;
+
                 case LogLevel.Warning:
                     str = "[WARNING] " + str;
                     break;
+
                 case LogLevel.Error:
                     str = "[ERROR] " + str;
                     break;
+
                 case LogLevel.FatalError:
                     str = "[!! FATAL ERROR !!] " + str;
                     break;
+
                 case LogLevel.Debug:
                     str = "[DEBUG] " + str;
                     break;
@@ -1995,7 +1993,7 @@ Are you sure?", @"Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == 
             LogOutputTextBox.Text += splittext;
         }
 
-        #endregion
+        #endregion Output
 
         #region registry
 
@@ -2038,26 +2036,6 @@ Are you sure?", @"Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == 
             myKey?.Close();
         }
 
-        #endregion
-
-        private void checkBoxDeleteWindows78Updates_CheckedChanged(object sender, EventArgs e)
-        {
-            checkedListBoxUpdatesW78.Enabled = checkBoxDeleteWindows78Updates.Checked;
-        }
-
-        private void DestroyWindowsSpyingMainForm_Activated(object sender, EventArgs e)
-        {
-            CaptionWindow.ForeColor = Color.FromArgb(64, 64, 64);
-        }
-
-        private void DestroyWindowsSpyingMainForm_Deactivate(object sender, EventArgs e)
-        {
-            CaptionWindow.ForeColor = Color.FromArgb(164, 164, 164);
-        }
-
-        private void linkLabel2_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
-        {
-            Process.Start("http://nullptr.space");
-        }
+        #endregion registry
     }
 }
